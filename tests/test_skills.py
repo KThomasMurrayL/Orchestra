@@ -8,9 +8,14 @@ import pytest
 from orchestra import skills
 
 
+def fake_home(monkeypatch: pytest.MonkeyPatch, path: Path) -> None:
+    monkeypatch.setenv("HOME", str(path))
+    monkeypatch.setenv("USERPROFILE", str(path))
+
+
 def test_add_and_discover_skill(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("ORCHESTRA_HOME", str(tmp_path / "home"))
-    monkeypatch.setenv("HOME", str(tmp_path / "user"))
+    fake_home(monkeypatch, tmp_path / "user")
     path = skills.add_skill("Paper Review", "Use when reviewing papers.")
     assert path.exists()
     assert path.parent.name == "paper-review"
@@ -42,14 +47,14 @@ def test_remove_skill(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 
 def test_config_skill_paths_include_user_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("ORCHESTRA_HOME", str(tmp_path / "home"))
-    monkeypatch.setenv("HOME", str(tmp_path / "user"))
+    fake_home(monkeypatch, tmp_path / "user")
     paths = skills.config_skill_paths()
     assert str(tmp_path / "home" / "skills") in paths
 
 
 def test_global_config_skill_paths_are_preserved(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("ORCHESTRA_HOME", str(tmp_path / "home"))
-    monkeypatch.setenv("HOME", str(tmp_path / "user"))
+    fake_home(monkeypatch, tmp_path / "user")
     config_dir = tmp_path / "user" / ".config" / "opencode"
     config_dir.mkdir(parents=True)
     (config_dir / "opencode.json").write_text('{"skills": {"paths": ["/custom/skills"]}}')
@@ -60,7 +65,7 @@ def test_global_config_skill_paths_are_preserved(tmp_path: Path, monkeypatch: py
 
 def test_generated_config_includes_skills(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("ORCHESTRA_HOME", str(tmp_path / "home"))
-    monkeypatch.setenv("HOME", str(tmp_path / "user"))
+    fake_home(monkeypatch, tmp_path / "user")
     from orchestra.home import prepare_home
 
     home = prepare_home(model="deepseek/deepseek-flash")
@@ -70,7 +75,7 @@ def test_generated_config_includes_skills(tmp_path: Path, monkeypatch: pytest.Mo
 
 def test_cli_skills_add_list_path_remove(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture):
     monkeypatch.setenv("ORCHESTRA_HOME", str(tmp_path / "home"))
-    monkeypatch.setenv("HOME", str(tmp_path / "user"))
+    fake_home(monkeypatch, tmp_path / "user")
     from orchestra.__main__ import main
 
     assert main(["skills", "add", "demo", "--description", "Use when testing."]) == 0

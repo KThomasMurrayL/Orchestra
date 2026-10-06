@@ -22,6 +22,7 @@ def test_parse_models_ignores_noise_and_duplicates():
 def test_resolve_model_prefers_saved_choice(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("ORCHESTRA_HOME", str(tmp_path / "state"))
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path / "home"))
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
     models.save_model("deepseek/deepseek-v4-pro")
     assert models.saved_model() == "deepseek/deepseek-v4-pro"
@@ -31,6 +32,7 @@ def test_resolve_model_prefers_saved_choice(tmp_path: Path, monkeypatch: pytest.
 def test_resolve_model_none_without_sources(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("ORCHESTRA_HOME", str(tmp_path / "state"))
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path / "home"))
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
     assert models.resolve_model() is None
 
