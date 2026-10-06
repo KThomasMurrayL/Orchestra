@@ -400,6 +400,8 @@ class OrchestraApp(App[None]):
             item.query_one(Static).update(self._orch_label(orch_id))
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
+        if event.input is not self._prompt:
+            return
         text = event.value.strip()
         if not text or not self.active_orch:
             return
