@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import asyncio
+
 import pytest
 from textual.widgets import Input, ListView
 
@@ -140,6 +142,46 @@ async def test_orchestrators_persist_across_restarts(tmp_path: Path, monkeypatch
         view = second._orch_views["o2"]
         assert len(view.children) == 2
         await second.controller.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_mic_button_toggles_recording(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("ORCHESTRA_HOME", str(tmp_path / "home"))
+
+    class FakeStatus:
+        available = True
+        reason = "voice ready (fake)"
+
+    class FakeVoice:
+        def __init__(self):
+            self.status = FakeStatus()
+            self.recording = False
+            self.last_peak = 10.0
+            self.device_name = "Fake Mic"
+
+        def start(self):
+            self.recording = True
+
+        def stop(self):
+            self.recording = False
+            return None
+
+    app = OrchestraApp(workspace=tmp_path, model=None, voice_enabled=False, max_workers=1)
+    fake = FakeVoice()
+    app.voice = fake
+    app._voice_note = fake.status.reason
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await pilot.click("#voice")
+        await pilot.pause()
+        assert fake.recording is True
+        assert str(app._voice_button.label) == "stop"
+        await asyncio.sleep(0.6)
+        await pilot.click("#voice")
+        await pilot.pause()
+        assert fake.recording is False
+        assert str(app._voice_button.label) == "mic"
+        await app.controller.shutdown()
 
 
 @pytest.mark.asyncio

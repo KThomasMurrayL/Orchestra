@@ -24,7 +24,7 @@ from .state import (
     load_transcript,
     save_orchestrators,
 )
-from .voice import VoiceInput
+from .voice import MIN_PEAK, VoiceInput
 from .widgets import ChatView, ConfirmQuit, ModelBadge, ModelPicker, NameDialog
 from .workers import TERMINAL, Worker
 
@@ -85,6 +85,18 @@ class OrchestraApp(App[None]):
         padding: 0 1;
     }
     #topbar-model:hover { background: $primary 30%; }
+    #voice {
+        width: auto;
+        height: 1;
+        min-width: 5;
+        border: none;
+        background: $boost;
+        color: $text-muted;
+        padding: 0 1;
+        margin: 0 0 0 1;
+    }
+    #voice:hover { background: $primary 30%; color: $text; }
+    #voice.recording { background: $error; color: black; }
     #quit {
         width: auto;
         height: 1;
@@ -196,6 +208,7 @@ class OrchestraApp(App[None]):
     """
     BINDINGS = [
         Binding("f2", "toggle_voice", "voice", show=True),
+        Binding("ctrl+r", "toggle_voice", "voice", show=False),
         Binding("m", "pick_model", "model", show=True),
         Binding(NEW_ORCH_KEY, "new_orchestrator", "new", show=True, priority=True),
         Binding(ALT_ORCH_KEY, "new_orchestrator", "new", show=False),
@@ -233,6 +246,7 @@ class OrchestraApp(App[None]):
         yield Horizontal(
             Static("", id="topbar-brand", markup=True),
             ModelBadge("", id="topbar-model", markup=True),
+            Button("mic", id="voice"),
             Button("✕", id="quit"),
             id="topbar",
         )
@@ -260,6 +274,7 @@ class OrchestraApp(App[None]):
         self.theme = "orchestra"
         self._topbar_brand = self.query_one("#topbar-brand", Static)
         self._topbar_model = self.query_one("#topbar-model", ModelBadge)
+        self._voice_button = self.query_one("#voice", Button)
         self._agents = self.query_one("#agents", ListView)
         self._switcher = self.query_one("#main", ContentSwitcher)
         self._detail_header = self.query_one("#detail-header", Static)
@@ -414,6 +429,8 @@ class OrchestraApp(App[None]):
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "new-orch":
             self.prompt_new_orchestrator()
+        elif event.button.id == "voice":
+            self.action_toggle_voice()
         elif event.button.id == "quit":
             self.action_confirm_quit()
 
@@ -509,6 +526,18 @@ class OrchestraApp(App[None]):
                 self._voice_note = self.voice.status.reason
                 self._render_status()
                 self.notify("nothing recorded", severity="warning")
+                return
+            if self.voice.last_peak < MIN_PEAK:
+                self._voice_note = self.voice.status.reason
+                self._render_status()
+                message = "no microphone signal detected"
+                if self.voice.device_name:
+                    message += f" from '{self.voice.device_name[:40]}'"
+                self.notify(
+                    message + " — check mic permissions/mute, or set ORCHESTRA_INPUT_DEVICE. Run `orchestra --check-voice`.",
+                    severity="warning",
+                    timeout=12,
+                )
                 return
             self._voice_note = "transcribing…"
             self._render_status()
@@ -643,6 +672,9 @@ class OrchestraApp(App[None]):
         else:
             voice = "[dim]voice off[/]"
         self._status_voice.update(voice)
+        recording = self.voice.recording
+        self._voice_button.label = "stop" if recording else "mic"
+        self._voice_button.set_class(recording, "recording")
 
     def _tick(self) -> None:
         self._spin = (self._spin + 1) % len(SPINNER)

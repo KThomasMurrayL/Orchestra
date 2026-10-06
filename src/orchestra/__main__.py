@@ -18,7 +18,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--model", default=None, help="model override for every agent, e.g. provider/model")
     parser.add_argument("--max-workers", type=int, default=4, help="maximum concurrently running workers (default: 4)")
     parser.add_argument("--no-voice", action="store_true", help="disable speech-to-text input")
+    parser.add_argument("--check-voice", action="store_true", help="diagnose microphone and speech-to-text setup, then exit")
     args = parser.parse_args(argv)
+
+    if args.check_voice:
+        from .voice import voice_diagnostics
+
+        return voice_diagnostics()
 
     workspace = Path(args.dir).expanduser().resolve()
     if not workspace.is_dir():

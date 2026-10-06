@@ -134,7 +134,7 @@ hidden from the picker.
 | new key | create a new orchestrator (a dialog asks for its name) — `ctrl+t` on macOS, `ctrl+n` on Windows/Linux, or click **+ new** in the sidebar |
 | `ctrl+w` | close the selected orchestrator (when it is idle) |
 | `m` | open the model picker (or click the model badge, top right) |
-| `F2` | start/stop voice recording |
+| `F2` / `ctrl+r` | start/stop voice recording (or click **mic**, top right) |
 | mouse / arrows | select an orchestrator or worker in the sidebar |
 | `ctrl+q` | quit, after a confirmation dialog (or click **✕** in the top right) |
 
@@ -172,11 +172,20 @@ via `opencode run` are hidden with a note.
 
 ### Voice
 
-Press `F2`, speak, press `F2` again. The transcript is inserted into the prompt for review; press
-`enter` to send. The first transcription downloads the model
-(`mlx-community/whisper-base.en-mlx`, ~75 MB) to the Hugging Face cache.
+Click the **mic** button in the top right, press `F2`, or press `ctrl+r`, speak, then stop. The
+transcript is inserted into the prompt for review; press `enter` to send. Recording adapts to your
+input device's native sample rate and channels, so it works with WASAPI (Windows), CoreAudio
+(macOS), and ALSA/PulseAudio (Linux).
 
-- Model override: `ORCHESTRA_WHISPER_MODEL=mlx-community/whisper-small.en-mlx`
+- Backends: `mlx-whisper` on Apple Silicon, `faster-whisper` on Windows/Intel macOS/Linux. The model
+  is downloaded on first use and the transcript language is English (`*.en` models).
+- `ORCHESTRA_WHISPER_MODEL` overrides the mlx model; `ORCHESTRA_FASTER_WHISPER_MODEL` overrides the
+  faster-whisper model (default `base.en`).
+- `ORCHESTRA_INPUT_DEVICE` picks a microphone by index or name substring, e.g.
+  `ORCHESTRA_INPUT_DEVICE="usb"` or `ORCHESTRA_INPUT_DEVICE=2`.
+- If dictation does nothing, run `orchestra --check-voice`: it lists input devices, records three
+  seconds, reports the peak level, and attempts a transcription. On Windows also check
+  **Settings > Privacy & security > Microphone** and allow desktop apps.
 - `ORCHESTRA_HOME` (default `~/.orchestra`) holds generated config, the plugin, saved orchestrators,
   transcripts, and the task inbox.
 - Tasks and statuses live in `~/.orchestra/inbox/`. Status files written there are what

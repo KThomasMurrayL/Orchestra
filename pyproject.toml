@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "orchestra-cli"
-version = "0.1.0"
+version = "0.1.1"
 description = "A plan-only orchestrator agent that dispatches real worker agent instances you can watch."
 readme = "README.md"
 requires-python = ">=3.11"
