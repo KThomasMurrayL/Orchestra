@@ -12,6 +12,7 @@ from rich.markup import escape
 
 from .events import AgentEvent
 from .home import Home
+from .palette import DONE, FAILED, STATUS_COLORS, TEXT, TOOL, WARNING
 from .process import OpencodeRunner, build_argv, build_env
 
 TERMINAL = {"done", "failed", "cancelled"}
@@ -86,13 +87,13 @@ class Worker:
             summary = escape(event.title)
             if event.status == "running":
                 self.detail = f"{event.tool}: {event.title}".strip(": ")
-                out.append(f"[#2dd4bf]→[/] [b]{label}[/] [dim]{summary}[/]")
+                out.append(f"[{TOOL}]→[/] [b]{label}[/] [dim]{summary}[/]")
             elif event.status == "completed":
                 if event.tool in ("edit", "write", "bash"):
-                    out.append(f"[dim #4ade80]✓[/] [dim]{label} {summary}[/]")
+                    out.append(f"[dim {DONE}]✓[/] [dim]{label} {summary}[/]")
             elif event.status == "error":
                 self.error = event.error
-                out.append(f"[#f87171]✘[/] [b]{label}[/] [#f87171]{escape(event.error[:300])}[/]")
+                out.append(f"[{FAILED}]✘[/] [b]{label}[/] [{FAILED}]{escape(event.error[:300])}[/]")
         elif event.kind == "step_finish":
             if event.cost:
                 self.cost += event.cost
@@ -100,7 +101,7 @@ class Worker:
                 self.tokens += int(event.tokens.get("input", 0) or 0) + int(event.tokens.get("output", 0) or 0)
         elif event.kind in ("stderr", "error") and (event.text or event.error):
             self.error = event.error or self.error
-            out.append(f"[#fbbf24]{escape((event.text or event.error).rstrip())}[/]")
+            out.append(f"[{WARNING}]{escape((event.text or event.error).rstrip())}[/]")
         for line in out:
             self.lines.append(line)
         return out
@@ -261,7 +262,7 @@ class Dispatcher:
             self.runners.pop(worker.id, None)
             self._write_result(worker)
             self._write_status(worker, force=True)
-            color = {"done": "#4ade80", "failed": "#f87171", "cancelled": "#94a3b8"}.get(worker.status, "#e2e8f0")
+            color = STATUS_COLORS.get(worker.status, TEXT)
             self.ui.on_worker_events(
                 worker,
                 [f"[b {color}]worker {worker.status}[/] [dim]in {worker.elapsed():.1f}s (exit {worker.exit_code})[/]"],

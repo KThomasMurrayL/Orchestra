@@ -15,6 +15,23 @@ from .events import AgentEvent
 from .home import prepare_home
 from .keys import ALT_ORCH_KEY, NEW_ORCH_KEY
 from .models import list_models, save_model
+from .palette import (
+    BACKGROUND,
+    BOOST,
+    DONE,
+    FAILED,
+    MUTED,
+    ORCH_SHADES,
+    PANEL,
+    PRIMARY,
+    QUEUED,
+    RUNNING,
+    SECONDARY,
+    STATUS_COLORS,
+    SURFACE,
+    TEXT,
+    WARNING,
+)
 from .process import ProcessResult
 from .state import (
     SavedOrchestrator,
@@ -31,26 +48,18 @@ from .workers import TERMINAL, Worker
 THEME = Theme(
     name="orchestra",
     dark=True,
-    primary="#2dd4bf",
-    secondary="#818cf8",
-    accent="#f59e0b",
-    success="#4ade80",
-    warning="#fbbf24",
-    error="#f87171",
-    foreground="#e2e8f0",
-    background="#0b0f14",
-    surface="#111827",
-    panel="#151c28",
-    boost="#1f2a3a",
+    primary=PRIMARY,
+    secondary=SECONDARY,
+    accent="#ffffff",
+    success=DONE,
+    warning=WARNING,
+    error=FAILED,
+    foreground=TEXT,
+    background=BACKGROUND,
+    surface=SURFACE,
+    panel=PANEL,
+    boost=BOOST,
 )
-
-STATUS_COLORS = {
-    "queued": "#fbbf24",
-    "running": "#38bdf8",
-    "done": "#4ade80",
-    "failed": "#f87171",
-    "cancelled": "#94a3b8",
-}
 
 STATUS_ICONS = {
     "queued": "○",
@@ -61,7 +70,6 @@ STATUS_ICONS = {
 }
 
 SPINNER = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
-ORCH_COLORS = ["#2dd4bf", "#818cf8", "#f59e0b", "#38bdf8", "#f472b6", "#a3e635"]
 
 
 class OrchestraApp(App[None]):
@@ -324,7 +332,7 @@ class OrchestraApp(App[None]):
         display = (name or auto).strip() or auto
         display = self._unique_name(display, exclude=oid)
         number = int(oid.lstrip("o") or 1)
-        color = ORCH_COLORS[(number - 1) % len(ORCH_COLORS)]
+        color = ORCH_SHADES[(number - 1) % len(ORCH_SHADES)]
         self._orch_names[oid] = display
         self._orch_shorts[oid] = f"O{number}"
         self._orch_colors[oid] = color
@@ -592,7 +600,7 @@ class OrchestraApp(App[None]):
         return "unknown"
 
     def _worker_header(self, worker: Worker) -> str:
-        color = STATUS_COLORS.get(worker.status, "#94a3b8")
+        color = STATUS_COLORS.get(worker.status, MUTED)
         pill = f"[black on {color}] {worker.status} [/]"
         meta = (
             f"[dim]{escape(worker.agent)} · from {escape(self._worker_origin(worker))} · {worker.id} · "
@@ -603,7 +611,7 @@ class OrchestraApp(App[None]):
         if worker.detail:
             lines.append(f"[dim]{escape(worker.detail[:160])}[/]")
         if worker.status == "failed" and worker.error:
-            lines.append(f"[#f87171]{escape(worker.error[:300])}[/]")
+            lines.append(f"[{FAILED}]{escape(worker.error[:300])}[/]")
         return "\n".join(lines)
 
     def _origin_short(self, session_id: str) -> str:
@@ -611,7 +619,7 @@ class OrchestraApp(App[None]):
         return self._orch_shorts.get(orch_id, "") if orch_id else ""
 
     def _worker_label(self, worker: Worker) -> str:
-        color = STATUS_COLORS.get(worker.status, "#94a3b8")
+        color = STATUS_COLORS.get(worker.status, MUTED)
         icon = SPINNER[self._spin] if worker.status == "running" else STATUS_ICONS.get(worker.status, "?")
         label = f"[{color}]{icon}[/] [b]{escape(worker.title)}[/]"
         if worker.status in ("running", "queued") and worker.detail:
@@ -632,7 +640,7 @@ class OrchestraApp(App[None]):
             display = "~" if str(rel) == "." else f"~/{rel}"
         except ValueError:
             display = str(self.workspace)
-        self._topbar_brand.update(f"[b #2dd4bf]◆ orchestra[/]  [dim]·[/]  [b]{escape(display)}[/]")
+        self._topbar_brand.update(f"[b {TEXT}]◆ orchestra[/]  [dim]·[/]  [b]{escape(display)}[/]")
         self._topbar_model.update(f"[dim]model[/] [b]{escape(self.model or 'default')}[/] [dim]▾[/]")
 
     def _worker_summary(self) -> str:
@@ -644,31 +652,31 @@ class OrchestraApp(App[None]):
         failed = sum(1 for worker in workers if worker.status == "failed")
         bits = []
         if active:
-            bits.append(f"[#38bdf8]{active} active[/]")
+            bits.append(f"[{RUNNING}]{active} active[/]")
         if done:
-            bits.append(f"[#4ade80]{done} done[/]")
+            bits.append(f"[{DONE}]{done} done[/]")
         if failed:
-            bits.append(f"[#f87171]{failed} failed[/]")
+            bits.append(f"[{FAILED}]{failed} failed[/]")
         return "[dim] · [/]".join(bits) + f" [dim]· {len(workers)} total[/]"
 
     def _render_status(self) -> None:
         state = self._orch_states.get(self.active_orch, "idle")
         if state == "thinking":
-            indicator = f"[#fbbf24]{SPINNER[self._spin]}[/] [b #fbbf24]thinking[/]"
+            indicator = f"[{WARNING}]{SPINNER[self._spin]}[/] [b {WARNING}]thinking[/]"
         elif state == "queued":
-            indicator = "[#fbbf24]○[/] [#fbbf24]queued[/]"
+            indicator = f"[{QUEUED}]○[/] [{QUEUED}]queued[/]"
         else:
-            indicator = "[#4ade80]●[/] [dim]ready[/]"
+            indicator = f"[{DONE}]●[/] [dim]ready[/]"
         if self.active_orch:
             indicator += f" [dim]· {escape(self._orch_names.get(self.active_orch, ''))}[/]"
         self._status_state.update(indicator)
         self._status_info.update(self._worker_summary())
         if self.voice.recording:
-            voice = "[#f87171]●[/] [b #f87171]recording[/] [dim]F2 to stop[/]"
+            voice = f"[{FAILED}]●[/] [b {FAILED}]recording[/] [dim]F2 to stop[/]"
         elif self._voice_note.startswith("transcribing"):
-            voice = f"[#fbbf24]{SPINNER[self._spin]}[/] [dim]transcribing…[/]"
+            voice = f"[{WARNING}]{SPINNER[self._spin]}[/] [dim]transcribing…[/]"
         elif self.voice.status.available:
-            voice = "[#4ade80]●[/] [dim]voice[/]"
+            voice = f"[{DONE}]●[/] [dim]voice[/]"
         else:
             voice = "[dim]voice off[/]"
         self._status_voice.update(voice)

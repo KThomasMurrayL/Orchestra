@@ -13,13 +13,14 @@ from textual.widgets.option_list import Option
 
 from .keys import NEW_ORCH_KEY
 from .models import usable_models
+from .palette import BRIGHT, TEXT
 
 HERO_TAIL = (
     "[dim]Describe what you want done. The orchestrator[/]\n"
     "[dim]plans it and dispatches real worker agents.[/]\n"
     "[dim]Click one in the sidebar to watch its output.[/]\n"
-    f"[dim]Press [/][b #f59e0b]F2[/][dim] to talk, [/][b #f59e0b]{NEW_ORCH_KEY}[/]"
-    "[dim] or [/][b #f59e0b]+ new[/][dim] for another orchestrator.[/]"
+    f"[dim]Press [/][b {BRIGHT}]F2[/][dim] to talk, [/][b {BRIGHT}]{NEW_ORCH_KEY}[/]"
+    f"[dim] or [/][b {BRIGHT}]+ new[/][dim] for another orchestrator.[/]"
 )
 
 
@@ -38,11 +39,11 @@ class ChatView(VerticalScroll):
             self.add_hero(self.hero_name)
 
     def add_hero(self, name: str = "orchestra") -> None:
-        self.mount(Static(f"[b #2dd4bf]◆ {escape(name)}[/]\n" + HERO_TAIL, classes="hero", markup=True))
+        self.mount(Static(f"[b {TEXT}]◆ {escape(name)}[/]\n" + HERO_TAIL, classes="hero", markup=True))
         self._scroll_end()
 
     def add_user(self, text: str) -> None:
-        self.mount(Static(f"[b #2dd4bf]you[/] [dim]›[/] {escape(text)}", classes="msg user", markup=True))
+        self.mount(Static(f"[b {TEXT}]you[/] [dim]›[/] {escape(text)}", classes="msg user", markup=True))
         self._scroll_end()
 
     def add_notice(self, text: str) -> None:
@@ -124,7 +125,7 @@ class ModelPicker(ModalScreen[str | None]):
         options = []
         for model in matches:
             if model == self.current:
-                options.append(Option(Text.assemble(("● ", "bold #2dd4bf"), (model, "bold")), id=model))
+                options.append(Option(Text.assemble(("● ", f"bold {TEXT}"), (model, "bold")), id=model))
             else:
                 options.append(Option(Text(model, style="dim"), id=model))
         option_list.add_options(options)
