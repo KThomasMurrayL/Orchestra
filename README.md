@@ -1,6 +1,6 @@
 # orchestra
 
-[![CI](https://github.com/KThomasMurrayL/Ochestra/actions/workflows/ci.yml/badge.svg)](https://github.com/KThomasMurrayL/Ochestra/actions/workflows/ci.yml)
+[![CI](https://github.com/KThomasMurrayL/Orchestra/actions/workflows/ci.yml/badge.svg)](https://github.com/KThomasMurrayL/Orchestra/actions/workflows/ci.yml)
 
 Talk to one or more planner agents. Each plans and dispatches **real worker agents** — every worker
 a separate `opencode run` process with its own session — and you can click any active agent in the
