@@ -1,0 +1,42 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "orchestra-cli"
+version = "0.1.0"
+description = "A plan-only orchestrator agent that dispatches real worker agent instances you can watch."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Software Development",
+]
+dependencies = ["textual>=0.80"]
+
+[project.optional-dependencies]
+voice = [
+    "numpy>=1.26",
+    "sounddevice>=0.4.6",
+    "mlx-whisper>=0.4.0; sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "faster-whisper>=1.0; platform_machine != 'arm64' or sys_platform != 'darwin'",
+]
+dev = ["pytest>=8", "pytest-asyncio>=0.23"]
+
+[project.scripts]
+orchestra = "orchestra.__main__:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/orchestra"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
