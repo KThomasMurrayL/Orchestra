@@ -59,7 +59,7 @@ def test_global_config_skill_paths_are_preserved(tmp_path: Path, monkeypatch: py
     config_dir.mkdir(parents=True)
     (config_dir / "opencode.json").write_text('{"skills": {"paths": ["/custom/skills"]}}')
     paths = skills.config_skill_paths()
-    assert "/custom/skills" in paths
+    assert str(Path("/custom/skills").expanduser()) in paths
     assert str(tmp_path / "home" / "skills") in paths
 
 
