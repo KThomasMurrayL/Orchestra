@@ -123,6 +123,7 @@ hidden from the picker.
 | --- | --- |
 | `--dir PATH` | workspace the agents operate in (default: current directory) |
 | `--model PROVIDER/MODEL` | override the model for every agent |
+| `--effort LEVEL` | reasoning effort: `minimal`, `low`, `medium`, `high`, or `max` |
 | `--max-workers N` | cap concurrency (default 4) |
 | `--no-voice` | disable microphone input |
 
@@ -134,6 +135,7 @@ hidden from the picker.
 | new key | create a new orchestrator (a dialog asks for its name) — `ctrl+t` on macOS, `ctrl+n` on Windows/Linux, or click **+ new** in the sidebar |
 | `ctrl+w` | close the selected orchestrator (when it is idle) |
 | `m` | open the model picker (or click the model badge, top right) |
+| `e` | open the effort picker (or click the effort badge, top right) |
 | `F2` / `ctrl+r` | start/stop voice recording (or click **mic**, top right) |
 | mouse / arrows | select an orchestrator or worker in the sidebar |
 | `ctrl+q` | quit, after a confirmation dialog (or click **✕** in the top right) |
@@ -169,6 +171,39 @@ Click the model badge in the top-right corner (or press `m`) to open a searchabl
 applies immediately to the orchestrator's next turn and to every worker dispatched afterwards, and is
 remembered for future runs. Models are listed from `opencode models`; models the provider cannot run
 via `opencode run` are hidden with a note.
+
+### Effort
+
+Press `e` or click the effort badge in the top-right corner to choose reasoning effort: `default`,
+`minimal`, `low`, `medium`, `high`, or `max`. This maps to opencode's `--variant` flag and is applied
+to both orchestrators and workers, so planners and workers can think harder (or cheaper) on demand.
+The choice applies from the next turn/dispatch and is remembered in `~/.orchestra/effort`.
+
+Effort is provider-specific: unsupported levels are ignored by opencode rather than failing, and
+providers without reasoning controls simply behave as usual. Set a starting value with
+`ORCHESTRA_EFFORT=high` or `--effort high`; `default` sends no flag.
+
+### Skills
+
+Orchestrators and workers understand [opencode skills](https://opencode.ai/docs/skills/). Put a skill
+in `~/.orchestra/skills/<name>/SKILL.md` and Orchestra wires it into the generated opencode config,
+so every orchestrator and worker you launch can load it — it survives restarts and needs no config
+editing:
+
+```sh
+orchestra skills add paper-review --description "Use when reviewing ML papers"
+# edit ~/.orchestra/skills/paper-review/SKILL.md, then restart orchestra
+orchestra skills list     # what is visible, and where it came from
+orchestra skills path     # the user skills directory
+orchestra skills remove paper-review
+```
+
+Skills are also picked up from opencode's own locations without any setup: your global
+`~/.config/opencode/skill(s)`, custom `skills.paths` in your global opencode config (preserved when
+Orchestra rewrites its config), project `.opencode/skill(s)`, and the auto-loaded `~/.claude/skills`
+and `~/.agents/skills`. `orchestra skills list` shows each skill's source so you can tell where it
+came from. Orchestrators fold matching skills into the tasks they dispatch, and workers load them
+directly when relevant.
 
 ### Voice
 

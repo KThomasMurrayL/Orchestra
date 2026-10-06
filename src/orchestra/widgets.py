@@ -29,6 +29,11 @@ class ModelBadge(Static):
         self.app.push_model_picker()
 
 
+class EffortBadge(Static):
+    def on_click(self, event) -> None:
+        self.app.push_effort_picker()
+
+
 class ChatView(VerticalScroll):
     def __init__(self, *children, hero_name: str | None = "orchestra", **kwargs):
         super().__init__(*children, **kwargs)
@@ -81,15 +86,16 @@ class ModelPicker(ModalScreen[str | None]):
     """
     BINDINGS = [Binding("escape", "close_picker", "close", show=False)]
 
-    def __init__(self, current: str | None, models: list[str] | None = None, note: str = ""):
+    def __init__(self, current: str | None, models: list[str] | None = None, note: str = "", title: str = "Select model"):
         super().__init__()
         self.current = current
         self._models = models
         self._note = note
+        self._title = title
 
     def compose(self) -> ComposeResult:
         with Vertical(id="picker"):
-            yield Static("Select model", id="picker-title")
+            yield Static(self._title, id="picker-title")
             yield Input(placeholder="type to filter…", id="picker-filter")
             yield Static("", id="picker-note")
             yield OptionList(id="picker-list")

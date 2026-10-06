@@ -135,12 +135,13 @@ class Worker:
 
 
 class Dispatcher:
-    def __init__(self, ui, home: Home, workspace: Path, max_workers: int, model: str | None = None):
+    def __init__(self, ui, home: Home, workspace: Path, max_workers: int, model: str | None = None, effort: str | None = None):
         self.ui = ui
         self.home = home
         self.workspace = workspace
         self.inbox = home.inbox
         self.model = model
+        self.effort = effort
         self.env = build_env(home.config, home.inbox)
         self.workers: dict[str, Worker] = {}
         self.runners: dict[str, OpencodeRunner] = {}
@@ -221,14 +222,14 @@ class Dispatcher:
             self.ui.on_worker_updated(worker)
             self._write_status(worker, force=True)
             argv = build_argv(
-                prompt=worker.prompt,
                 agent=worker.agent,
                 directory=self.workspace,
                 model=self.model,
+                variant=self.effort,
                 title=worker.title,
                 auto=True,
             )
-            runner = OpencodeRunner(argv, self.env, self.workspace)
+            runner = OpencodeRunner(argv, self.env, self.workspace, worker.prompt)
             self.runners[worker.id] = runner
 
             def on_event(event: AgentEvent) -> None:

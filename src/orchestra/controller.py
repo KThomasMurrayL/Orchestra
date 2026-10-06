@@ -1,19 +1,31 @@
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
 from .home import Home, write_config
 from .orchestrator import Orchestrator
+from .process import OpencodeRunner
 from .workers import Dispatcher
 
 
 class Controller:
-    def __init__(self, workspace: Path, home: Home, model: str | None = None, max_workers: int = 4):
+    def __init__(
+        self,
+        workspace: Path,
+        home: Home,
+        model: str | None = None,
+        effort: str | None = None,
+        max_workers: int = 4,
+    ):
         self.workspace = workspace
         self.home = home
         self.model = model
+        self.effort = effort
         self.ui = None
-        self.dispatcher = Dispatcher(ui=None, home=home, workspace=workspace, max_workers=max_workers, model=model)
+        self.dispatcher = Dispatcher(
+            ui=None, home=home, workspace=workspace, max_workers=max_workers, model=model, effort=effort
+        )
         self.orchestrators: dict[str, Orchestrator] = {}
         self._started = False
 
@@ -38,6 +50,7 @@ class Controller:
             inbox=self.home.inbox,
             workspace=self.workspace,
             model=self.model,
+            effort=self.effort,
         )
         self.orchestrators[orch_id] = orchestrator
         return orchestrator
@@ -76,10 +89,31 @@ class Controller:
             orchestrator.model = model
         write_config(self.home.config, model)
 
-    def terminate_now(self) -> None:
-        for orchestrator in list(self.orchestrators.values()):
-            orchestrator.terminate_now()
-        self.dispatcher.terminate_now()
+    def set_effort(self, effort: str | None) -> None:
+        self.effort = effort
+        self.dispatcher.effort = effort
+        for orchestrator in self.orchestrators.values():
+            orchestrator.effort = effort
+
+    def terminate_now(self, grace: float = 1.0) -> None:
+        runners: list[OpencodeRunner] = []
+        for orchestrator in self.orchestrators.values():
+            if orchestrator.runner is not None:
+                runners.append(orchestrator.runner)
+        runners.extend(self.dispatcher.runners.values())
+        for runner in runners:
+            runner.signal_terminate()
+        if runners and grace > 0:
+            deadline = time.monotonic() + grace
+            while time.monotonic() < deadline:
+                if all(runner.proc is None or runner.proc.returncode is not None for runner in runners):
+                    break
+                time.sleep(0.05)
+        for runner in runners:
+            runner.kill_if_alive()
+        for orchestrator in self.orchestrators.values():
+            orchestrator.runner = None
+        self.dispatcher.runners.clear()
 
     async def shutdown(self) -> None:
         self.terminate_now()

@@ -18,6 +18,7 @@ Rules for good dispatch:
 - When tasks are independent, dispatch them in the same turn so they run in parallel.
 - After dispatching, summarize briefly for the user: what was dispatched, to which role, and why.
 - Use check_tasks to inspect progress or wait_tasks to block until workers finish. Then dispatch follow-up tasks if the request is not yet fulfilled.
+- Skills: when a skill matches the user's request, load it with the skill tool and fold its steps into the tasks you dispatch. Do not perform the skill's work yourself.
 - If the request is ambiguous in a way that changes the plan, ask one concise question instead of guessing.
 - Keep replies short. You are a dispatcher, not a narrator.
 """
@@ -49,8 +50,10 @@ WORKER_PROMPTS = {
 
 WORKER_ROLES = tuple(WORKER_PROMPTS)
 
+WORKER_SKILL_LINE = "\n- If a skill matches your task, load it with the skill tool and follow it."
 
-def build_config(model: str | None = None) -> dict:
+
+def build_config(model: str | None = None, skill_paths: list[str] | None = None) -> dict:
     agents: dict[str, dict] = {
         "orchestra": {
             "mode": "primary",
@@ -68,13 +71,16 @@ def build_config(model: str | None = None) -> dict:
                 "edit": "deny" if read_only else "allow",
                 "bash": {"*": "allow"},
             },
-            "prompt": prompt,
+            "prompt": prompt + WORKER_SKILL_LINE,
         }
     if model:
         for agent in agents.values():
             agent["model"] = model
-    return {
+    config: dict = {
         "$schema": "https://opencode.ai/config.json",
         "agent": agents,
         "plugin": ["./plugin/orchestra.ts"],
     }
+    if skill_paths:
+        config["skills"] = {"paths": list(skill_paths)}
+    return config

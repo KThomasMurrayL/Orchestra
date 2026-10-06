@@ -1,11 +1,13 @@
 from pathlib import Path
 
 import asyncio
+import json
 
 import pytest
 from textual.widgets import Input, ListView
 
 from orchestra.app import NEW_ORCH_KEY, OrchestraApp
+from orchestra.events import AgentEvent
 from orchestra.state import append_transcript
 from orchestra.widgets import ConfirmQuit, ModelPicker, NameDialog
 
@@ -181,6 +183,56 @@ async def test_mic_button_toggles_recording(tmp_path: Path, monkeypatch: pytest.
         await pilot.pause()
         assert fake.recording is False
         assert str(app._voice_button.label) == "mic"
+        await app.controller.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_session_saved_as_soon_as_discovered(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("ORCHESTRA_HOME", str(tmp_path / "home"))
+    app = OrchestraApp(workspace=tmp_path, model=None, voice_enabled=False, max_workers=1)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        event = AgentEvent(kind="text", part_id="p1", message_id="m1", text="hi", session_id="ses_new")
+        app.on_orchestrator_event("o1", event)
+        saved = json.loads((tmp_path / "home" / "orchestrators.json").read_text(encoding="utf-8"))
+        assert saved[0]["session_id"] == "ses_new"
+        assert app.controller.orchestrators["o1"].session_id == "ses_new"
+        await app.controller.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_set_effort_updates_controller(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("ORCHESTRA_HOME", str(tmp_path / "home"))
+    app = OrchestraApp(workspace=tmp_path, model=None, voice_enabled=False, max_workers=1)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await app.add_orchestrator()
+        app.set_effort("high")
+        assert app.effort == "high"
+        assert app.controller.dispatcher.effort == "high"
+        assert app.controller.orchestrators["o1"].effort == "high"
+        assert app.controller.orchestrators["o2"].effort == "high"
+        assert (tmp_path / "home" / "effort").read_text().strip() == "high"
+        app.set_effort("default")
+        assert app.effort is None
+        assert not (tmp_path / "home" / "effort").exists()
+        await app.controller.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_effort_picker_selects(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("ORCHESTRA_HOME", str(tmp_path / "home"))
+    app = OrchestraApp(workspace=tmp_path, model=None, voice_enabled=False, max_workers=1)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app.push_effort_picker()
+        await pilot.pause()
+        assert isinstance(app.screen, ModelPicker)
+        app.screen.query_one("#picker-filter", Input).value = "high"
+        await pilot.pause()
+        await pilot.press("enter")
+        await pilot.pause()
+        assert app.effort == "high"
         await app.controller.shutdown()
 
 

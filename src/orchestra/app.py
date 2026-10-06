@@ -11,6 +11,7 @@ from textual.theme import Theme
 from textual.widgets import Button, ContentSwitcher, Footer, Input, ListItem, ListView, Markdown, RichLog, Static
 
 from .controller import Controller
+from .effort import EFFORT_OPTIONS, save_effort
 from .events import AgentEvent
 from .home import prepare_home
 from .keys import ALT_ORCH_KEY, NEW_ORCH_KEY
@@ -33,6 +34,7 @@ from .palette import (
     WARNING,
 )
 from .process import ProcessResult
+from .skills import discover_skills
 from .state import (
     SavedOrchestrator,
     append_transcript,
@@ -42,7 +44,7 @@ from .state import (
     save_orchestrators,
 )
 from .voice import MIN_PEAK, VoiceInput
-from .widgets import ChatView, ConfirmQuit, ModelBadge, ModelPicker, NameDialog
+from .widgets import ChatView, ConfirmQuit, EffortBadge, ModelBadge, ModelPicker, NameDialog
 from .workers import TERMINAL, Worker
 
 THEME = Theme(
@@ -86,13 +88,13 @@ class OrchestraApp(App[None]):
         overflow: hidden;
         text-overflow: ellipsis;
     }
-    #topbar-model {
+    #topbar-model, #topbar-effort {
         width: auto;
         background: $boost;
         color: $text;
         padding: 0 1;
     }
-    #topbar-model:hover { background: $primary 30%; }
+    #topbar-model:hover, #topbar-effort:hover { background: $primary 30%; }
     #voice {
         width: auto;
         height: 1;
@@ -218,6 +220,7 @@ class OrchestraApp(App[None]):
         Binding("f2", "toggle_voice", "voice", show=True),
         Binding("ctrl+r", "toggle_voice", "voice", show=False),
         Binding("m", "pick_model", "model", show=True),
+        Binding("e", "pick_effort", "effort", show=True),
         Binding(NEW_ORCH_KEY, "new_orchestrator", "new", show=True, priority=True),
         Binding(ALT_ORCH_KEY, "new_orchestrator", "new", show=False),
         Binding("ctrl+w", "close_orchestrator", "close", show=True),
@@ -226,13 +229,23 @@ class OrchestraApp(App[None]):
         Binding("escape", "focus_prompt", "prompt", show=False),
     ]
 
-    def __init__(self, workspace: Path, model: str | None = None, voice_enabled: bool = True, max_workers: int = 4):
+    def __init__(
+        self,
+        workspace: Path,
+        model: str | None = None,
+        effort: str | None = None,
+        voice_enabled: bool = True,
+        max_workers: int = 4,
+    ):
         super().__init__()
         self.workspace = workspace
         self.model = model
+        self.effort = effort
         self.voice = VoiceInput(enabled=voice_enabled)
         self.home = prepare_home(model=model)
-        self.controller = Controller(workspace=workspace, home=self.home, model=model, max_workers=max_workers)
+        self.controller = Controller(
+            workspace=workspace, home=self.home, model=model, effort=effort, max_workers=max_workers
+        )
         self.worker_items: dict[str, ListItem] = {}
         self.selected = ""
         self.active_orch = ""
@@ -245,6 +258,7 @@ class OrchestraApp(App[None]):
         self._orch_views: dict[str, ChatView] = {}
         self._streams: dict[str, tuple[Markdown | None, str | None]] = {}
         self._turn_texts: dict[str, dict[str, str]] = {}
+        self._saved_sessions: dict[str, str] = {}
         self._voice_note = self.voice.status.reason
         self._shutdown_requested = False
         self._spin = 0
@@ -254,6 +268,7 @@ class OrchestraApp(App[None]):
         yield Horizontal(
             Static("", id="topbar-brand", markup=True),
             ModelBadge("", id="topbar-model", markup=True),
+            EffortBadge("", id="topbar-effort", markup=True),
             Button("mic", id="voice"),
             Button("✕", id="quit"),
             id="topbar",
@@ -282,6 +297,7 @@ class OrchestraApp(App[None]):
         self.theme = "orchestra"
         self._topbar_brand = self.query_one("#topbar-brand", Static)
         self._topbar_model = self.query_one("#topbar-model", ModelBadge)
+        self._topbar_effort = self.query_one("#topbar-effort", EffortBadge)
         self._voice_button = self.query_one("#voice", Button)
         self._agents = self.query_one("#agents", ListView)
         self._switcher = self.query_one("#main", ContentSwitcher)
@@ -313,6 +329,11 @@ class OrchestraApp(App[None]):
             )
             self._chat_for(self.active_orch).add_notice(message)
             self.notify(message, severity="warning", timeout=12)
+        custom_skills = [skill for skill in discover_skills(self.workspace) if skill.source == "orchestra"]
+        if custom_skills:
+            self._chat_for(self.active_orch).add_notice(
+                f"{len(custom_skills)} custom skill(s) loaded · orchestra skills list"
+            )
 
     async def add_orchestrator(
         self,
@@ -342,6 +363,7 @@ class OrchestraApp(App[None]):
         orchestrator = self.controller.add_orchestrator(oid, display)
         if session_id:
             orchestrator.session_id = session_id
+            self._saved_sessions[oid] = session_id
         view = ChatView(id=f"chat-{oid}", hero_name=None if entries else display)
         self._orch_views[oid] = view
         await self._switcher.add_content(view, set_current=True)
@@ -397,6 +419,7 @@ class OrchestraApp(App[None]):
         self._orch_states.pop(orch_id, None)
         self._streams.pop(orch_id, None)
         self._turn_texts.pop(orch_id, None)
+        self._saved_sessions.pop(orch_id, None)
         self.controller.remove_orchestrator(orch_id)
         delete_transcript(orch_id)
         self._save_state()
@@ -459,6 +482,9 @@ class OrchestraApp(App[None]):
     def action_pick_model(self) -> None:
         self.push_model_picker()
 
+    def action_pick_effort(self) -> None:
+        self.push_effort_picker()
+
     def action_new_orchestrator(self) -> None:
         self.prompt_new_orchestrator()
 
@@ -491,6 +517,30 @@ class OrchestraApp(App[None]):
 
     def push_model_picker(self) -> None:
         self.push_screen(ModelPicker(self.model), self._on_model_chosen)
+
+    def push_effort_picker(self) -> None:
+        note = "maps to opencode's --variant; 'default' sends no flag"
+        self.push_screen(
+            ModelPicker(self.effort or "default", EFFORT_OPTIONS, note, title="Reasoning effort"),
+            self._on_effort_chosen,
+        )
+
+    def _on_effort_chosen(self, effort: str | None) -> None:
+        if effort:
+            self.set_effort(effort)
+
+    def set_effort(self, effort: str) -> None:
+        normalized = None if effort == "default" else effort
+        if normalized == self.effort:
+            self.notify(f"already using {effort}", timeout=2)
+            return
+        self.effort = normalized
+        save_effort(normalized)
+        self.controller.set_effort(normalized)
+        self._render_topbar()
+        if self.active_orch:
+            self._chat_for(self.active_orch).add_notice(f"reasoning effort set to {effort}")
+        self.notify(f"effort → {effort}", timeout=3)
 
     def _on_model_chosen(self, model: str | None) -> None:
         if model:
@@ -642,6 +692,7 @@ class OrchestraApp(App[None]):
             display = str(self.workspace)
         self._topbar_brand.update(f"[b {TEXT}]◆ orchestra[/]  [dim]·[/]  [b]{escape(display)}[/]")
         self._topbar_model.update(f"[dim]model[/] [b]{escape(self.model or 'default')}[/] [dim]▾[/]")
+        self._topbar_effort.update(f"[dim]effort[/] [b]{escape(self.effort or 'default')}[/] [dim]▾[/]")
 
     def _worker_summary(self) -> str:
         workers = list(self.controller.dispatcher.workers.values())
@@ -704,6 +755,13 @@ class OrchestraApp(App[None]):
         view = self._orch_views.get(orch_id)
         if view is None:
             return
+        if event.session_id:
+            orchestrator = self.controller.orchestrators.get(orch_id)
+            if orchestrator is not None:
+                orchestrator.session_id = event.session_id
+            if self._saved_sessions.get(orch_id) != event.session_id:
+                self._saved_sessions[orch_id] = event.session_id
+                self._save_state()
         widget, part = self._streams.get(orch_id, (None, None))
         turn = self._turn_texts.setdefault(orch_id, {})
         if event.kind == "text":

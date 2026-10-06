@@ -9,6 +9,7 @@ from pathlib import Path
 
 from .agents import build_config
 from .process import opencode_command
+from .skills import config_skill_paths
 
 
 @dataclass(frozen=True)
@@ -25,7 +26,8 @@ def base_dir() -> Path:
 
 
 def write_config(config: Path, model: str | None) -> None:
-    config.write_text(json.dumps(build_config(model), indent=2) + "\n", encoding="utf-8")
+    payload = build_config(model, config_skill_paths())
+    config.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
 def prepare_home(model: str | None = None) -> Home:
@@ -37,6 +39,7 @@ def prepare_home(model: str | None = None) -> Home:
     plugin.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
     config = base / "opencode.json"
     write_config(config, model)
+    (base / "skills").mkdir(parents=True, exist_ok=True)
     inbox = base / "inbox"
     inbox.mkdir(parents=True, exist_ok=True)
     plugin_ready = _ensure_plugin_deps(base)

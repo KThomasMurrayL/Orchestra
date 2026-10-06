@@ -17,12 +17,14 @@ class Orchestrator:
         inbox: Path,
         workspace: Path,
         model: str | None = None,
+        effort: str | None = None,
     ):
         self.orch_id = orch_id
         self.name = name
         self.ui = ui
         self.workspace = workspace
         self.model = model
+        self.effort = effort
         self.env = build_env(config, inbox)
         self.session_id: str | None = None
         self.runner: OpencodeRunner | None = None
@@ -34,14 +36,14 @@ class Orchestrator:
         async with self.turn_lock:
             self.ui.on_orchestrator_state(self.orch_id, "thinking")
             argv = build_argv(
-                prompt=prompt,
                 agent="orchestra",
                 directory=self.workspace,
                 session_id=self.session_id,
                 model=self.model,
+                variant=self.effort,
                 title=None if self.session_id else self.name,
             )
-            runner = OpencodeRunner(argv, self.env, self.workspace)
+            runner = OpencodeRunner(argv, self.env, self.workspace, prompt)
             self.runner = runner
 
             def on_event(event: AgentEvent) -> None:
