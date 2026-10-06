@@ -53,6 +53,23 @@ orchestrator N ─┘        ▲                                                
 
 ## Install
 
+### From a release (no git clone)
+
+Grab the source archive for the latest release from
+<https://github.com/KThomasMurrayL/Orchestra/releases>, extract it, and run the installer for your
+OS:
+
+```sh
+./install.sh                          # macOS / Linux
+```
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\install.ps1   # Windows
+```
+
+The installers create a virtualenv, install the package with voice support, and put `orchestra` on
+your `PATH`.
+
 ### macOS and Linux
 
 ```sh
